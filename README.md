@@ -37,6 +37,15 @@ Alerts are calculated live by the `delivery_alerts` view:
 
 Admins set the thresholds under **Settings**. Each user can acknowledge alerts. The Alerts tab shows a badge for unacknowledged critical and high alerts. Users can also turn on desktop notifications, which appear while the app is open; the app checks for new alerts every 5 minutes.
 
+## Install as an app (PWA)
+
+The tracker is a Progressive Web App:
+
+- **Install:** use the *Install* banner or the *Install app* option in the user menu (Chrome, Edge, Android). On iPhone or iPad, open it in Safari, tap **Share**, then **Add to Home Screen**.
+- **Offline:** the app shell is cached by `sw.js`. While you're offline, the app shows the data from the last time it loaded (stored only on that device, cleared when you sign out) and turns editing off.
+- **Notifications:** new critical and high alerts trigger a system notification, sent through the service worker. The app checks every 5 minutes while it's open and whenever you return to it. Clicking a notification opens the Alerts page. On iOS, notifications work only from the installed app.
+- **Updates:** when a new version is deployed, the app offers a *Reload* button. Bump `VERSION` in `sw.js` with each release.
+
 ## Users and roles
 
 | Role | Can do |
@@ -53,6 +62,9 @@ There is no public sign-up page. Admins create accounts under **Users** (handled
 index.html                         app (login, dashboard, deliveries, alerts, users, settings)
 config.js                          Supabase URL + publishable key (public)
 vercel.json                        static hosting headers
+manifest.webmanifest               PWA manifest
+sw.js                              service worker (offline shell, notifications)
+icons/                             app icons (any + maskable, Apple touch icon)
 supabase/migrations/001_init.sql   tables, RLS, views, alert logic
 supabase/functions/admin-users/    admin user-management Edge Function
 ```
