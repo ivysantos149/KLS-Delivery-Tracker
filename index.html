@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KLS Delivery Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231f3a5f'/><path d='M7 20h12v-8h4l3 4v4h-2' fill='none' stroke='white' stroke-width='2'/><circle cx='11' cy='22' r='2' fill='white'/><circle cx='22' cy='22' r='2' fill='white'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#fff; --ink:#18212f; --muted:#5f6b7a; --line:#e3e7ed; --soft:#eef1f5;
+    --brand:#1f3a5f; --brand2:#2d5a8c; --accent:#e8a33d;
+    --prod:#4f7cc4; --ship:#2ba39b; --ok:#1f9d55; --tight:#c99a06; --risk:#e07b1a; --late:#d23b3b; --gray:#8b95a3;
+    --radius:10px; --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:var(--brand2)}
+  .hidden{display:none!important}
+
+  /* Login */
+  #login{min-height:100%;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#1f3a5f 0%,#2d5a8c 60%,#3b6fa6 100%)}
+  .login-card{width:100%;max-width:380px;background:#fff;border-radius:14px;padding:32px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .login-card h1{margin:0 0 4px;font-size:22px}
+  .login-card p.sub{margin:0 0 24px;color:var(--muted)}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px}
+  .logo .mark{width:34px;height:34px;border-radius:8px;background:var(--brand);display:grid;place-items:center;color:#fff}
+
+  /* Layout */
+  header.top{position:sticky;top:0;z-index:20;background:var(--brand);color:#fff;display:flex;align-items:center;gap:20px;padding:0 20px;height:56px}
+  header.top .logo .mark{background:rgba(255,255,255,.14)}
+  nav.tabs{display:flex;gap:2px;flex:1;overflow-x:auto}
+  nav.tabs button{background:none;border:0;color:rgba(255,255,255,.75);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;white-space:nowrap;position:relative}
+  nav.tabs button:hover{color:#fff;background:rgba(255,255,255,.08)}
+  nav.tabs button.active{color:#fff;background:rgba(255,255,255,.16)}
+  .badge{display:inline-block;min-width:18px;padding:0 6px;height:18px;line-height:18px;border-radius:9px;background:var(--late);color:#fff;font-size:11px;font-weight:700;text-align:center;margin-left:6px}
+  .usermenu{position:relative}
+  .usermenu > button{background:rgba(255,255,255,.12);border:0;color:#fff;padding:6px 12px;border-radius:8px;cursor:pointer;display:flex;gap:8px;align-items:center}
+  .menu{position:absolute;right:0;top:44px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.12);min-width:200px;padding:6px;z-index:30}
+  .menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:6px;cursor:pointer}
+  .menu button:hover{background:var(--soft)}
+  .menu .meta{padding:8px 10px;color:var(--muted);font-size:12px;border-bottom:1px solid var(--line);margin-bottom:4px}
+  main{max-width:1440px;margin:0 auto;padding:22px 20px 60px}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .page-head h2{margin:0;font-size:20px}
+  .page-head p{margin:2px 0 0;color:var(--muted)}
+
+  /* Controls */
+  .btn{border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:var(--soft)}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand2)}
+  .btn.danger{color:var(--late);border-color:#f2c9c9}
+  .btn.danger:hover{background:#fdf0f0}
+  .btn.sm{padding:4px 10px;font-size:13px}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  label.f{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  input.in,select.in,textarea.in{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+  input.in:focus,select.in:focus,textarea.in:focus{outline:2px solid rgba(45,90,140,.25);border-color:var(--brand2)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .toolbar .in{width:auto}
+  .toolbar input.in{min-width:240px}
+  .err{color:var(--late);font-size:13px;margin-top:8px;min-height:18px}
+
+  /* Cards */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card h3{margin:0;font-size:15px}
+  .card .hd{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .card .bd{padding:14px 16px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{padding:14px 16px;cursor:pointer;transition:transform .08s}
+  .kpi:hover{transform:translateY(-1px)}
+  .kpi .lbl{font-size:12px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+  .kpi .val{font-size:28px;font-weight:700;margin-top:4px}
+  .kpi .sub{font-size:12px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+  @media (max-width:1000px){.grid2{grid-template-columns:1fr}}
+
+  /* Table */
+  .tbl-wrap{overflow:auto}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;background:#fafbfc;position:sticky;top:0;cursor:pointer;user-select:none}
+  th.nosort{cursor:default}
+  tbody tr:hover{background:#f8fafc}
+  tbody tr.click{cursor:pointer}
+  td.num,th.num{text-align:right}
+  .sub2{color:var(--muted);font-size:12px}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+  .h-on_track{background:#e6f5ec;color:#16743f}
+  .h-tight{background:#fbf3d6;color:#8a6a00}
+  .h-at_risk{background:#fdeedd;color:#b25a0c}
+  .h-late{background:#fbe3e3;color:#b02727}
+  .h-delivered_on_time{background:#e3eefb;color:#1f4f8a}
+  .h-delivered_late{background:#f1e6f7;color:#6e2d8f}
+  .h-cancelled{background:#eceef1;color:#5f6b7a}
+  .s-tag{background:var(--soft);color:var(--muted)}
+  .buf-pos{color:var(--ok);font-weight:600}
+  .buf-low{color:var(--tight);font-weight:600}
+  .buf-neg{color:var(--late);font-weight:600}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+
+  /* Timeline bar */
+  .tl{position:relative;height:18px;min-width:220px;background:var(--soft);border-radius:4px;overflow:visible}
+  .tl .seg{position:absolute;top:3px;height:12px;border-radius:3px}
+  .tl .seg.p{background:var(--prod)}
+  .tl .seg.s{background:var(--ship)}
+  .tl .seg.ghost{opacity:.35}
+  .tl .mk{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px}
+  .tl .mk.c{background:var(--late)}
+  .tl .mk.c.ok{background:var(--ink)}
+  .tl .mk.t{background:var(--accent);width:2px;opacity:.9}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{display:inline-block;width:14px;height:8px;border-radius:2px}
+
+  /* Alerts */
+  .alert-row{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:flex-start}
+  .alert-row:last-child{border-bottom:0}
+  .alert-row.acked{opacity:.55}
+  .sev{width:4px;align-self:stretch;border-radius:2px;flex:none}
+  .sev-critical{background:var(--late)} .sev-high{background:var(--risk)} .sev-medium{background:var(--tight)} .sev-low{background:var(--prod)}
+  .alert-row .body{flex:1;min-width:0}
+  .alert-row .ttl{font-weight:600}
+  .alert-row .msg{color:var(--muted);font-size:13px}
+  .chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:1px 7px;border-radius:4px;margin-right:6px}
+  .chip-critical{background:#fbe3e3;color:#b02727} .chip-high{background:#fdeedd;color:#b25a0c} .chip-medium{background:#fbf3d6;color:#8a6a00} .chip-low{background:#e5edf9;color:#2f5ea6}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:grid;place-items:center;padding:20px;z-index:50}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:760px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 30px 60px rgba(0,0,0,.25)}
+  .modal.narrow{max-width:440px}
+  .modal .mh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .modal .mh h3{margin:0;font-size:17px}
+  .modal .mb{padding:18px 20px;overflow:auto}
+  .modal .mf{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+  .x{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--muted)}
+  .form-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  .form-grid .c2{grid-column:span 2} .form-grid .c3{grid-column:span 3} .form-grid .c6{grid-column:span 6}
+  @media (max-width:640px){.form-grid .c2,.form-grid .c3{grid-column:span 6}}
+  .section-t{grid-column:span 6;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--brand2);margin-top:6px;padding-top:8px;border-top:1px dashed var(--line)}
+  .section-t:first-child{border-top:0;padding-top:0;margin-top:0}
+  .calc{grid-column:span 6;background:var(--soft);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+  .calc div b{display:block;font-size:15px}
+  .calc div span{font-size:11.5px;color:var(--muted);font-weight:600}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+  .switch{position:relative;display:inline-block;width:36px;height:20px}
+  .switch input{opacity:0;width:0;height:0}
+  .switch span{position:absolute;inset:0;background:#cfd5dd;border-radius:20px;transition:.15s;cursor:pointer}
+  .switch span:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+  .switch input:checked + span{background:var(--ok)}
+  .switch input:checked + span:before{transform:translateX(16px)}
+  .settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .help{font-size:12px;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- ─────────────── Login ─────────────── -->
+<section id="login" class="hidden">
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <div class="logo" style="margin-bottom:22px"><div class="mark">
+      <svg width="20" height="20" viewBox="0 0 32 32"><path d="M5 20h13v-9h5l4 5v4h-2" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="10" cy="22" r="2.4" fill="#fff"/><circle cx="22" cy="22" r="2.4" fill="#fff"/></svg>
+    </div>KLS Delivery Tracker</div>
+    <h1>Sign in</h1>
+    <p class="sub">Delivery commitments vs production &amp; shipment lead times</p>
+    <label class="f" for="lEmail">Email</label>
+    <input class="in" id="lEmail" type="email" required autocomplete="username" style="margin-bottom:12px">
+    <label class="f" for="lPass">Password</label>
+    <input class="in" id="lPass" type="password" required autocomplete="current-password">
+    <div class="err" id="lErr"></div>
+    <button class="btn primary" style="width:100%;justify-content:center;margin-top:6px;padding:10px" id="lBtn">Sign in</button>
+    <p class="sub2" style="margin-top:16px;text-align:center">Forgot your password or need access? Ask your administrator.</p>
+  </form>
+</section>
+
+<!-- ─────────────── App ─────────────── -->
+<section id="app" class="hidden">
+  <header class="top">
+    <div class="logo"><div class="mark">
+      <svg width="20" height="20" viewBox="0 0 32 32"><path d="M5 20h13v-9h5l4 5v4h-2" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="10" cy="22" r="2.4" fill="#fff"/><circle cx="22" cy="22" r="2.4" fill="#fff"/></svg>
+    </div><span>KLS Delivery Tracker</span></div>
+    <nav class="tabs" id="tabs">
+      <button data-page="dashboard">Dashboard</button>
+      <button data-page="deliveries">Deliveries</button>
+      <button data-page="alerts">Alerts<span class="badge hidden" id="alertBadge">0</span></button>
+      <button data-page="users" class="admin-only">Users</button>
+      <button data-page="settings" class="admin-only">Settings</button>
+    </nav>
+    <div class="usermenu">
+      <button id="userBtn"><span id="userName">—</span> ▾</button>
+      <div class="menu hidden" id="userMenu">
+        <div class="meta"><div id="userEmail"></div><div id="userRole"></div></div>
+        <button id="mPwd">Change password</button>
+        <button id="mNotif">Enable desktop alerts</button>
+        <button id="mOut">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Dashboard -->
+    <div id="page-dashboard" class="page">
+      <div class="page-head">
+        <div><h2>Dashboard</h2><p id="dashDate"></p></div>
+        <button class="btn primary editor-only" data-act="new">+ New delivery</button>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="hd"><h3>Upcoming commitments · next 30 days</h3>
+            <div class="legend"><span><i style="background:var(--prod)"></i>Production</span><span><i style="background:var(--ship)"></i>Shipment</span><span><i style="background:var(--late);width:3px;height:12px"></i>Commitment</span><span><i style="background:var(--accent);width:3px;height:12px"></i>Today</span></div>
+          </div>
+          <div class="tbl-wrap"><table><thead><tr><th class="nosort">SO / Client</th><th class="nosort">Commitment</th><th class="nosort num">Buffer</th><th class="nosort">Timeline</th><th class="nosort">Health</th></tr></thead><tbody id="upcoming"></tbody></table></div>
+        </div>
+        <div class="card">
+          <div class="hd"><h3>Open alerts</h3><button class="btn sm" data-goto="alerts">View all</button></div>
+          <div id="dashAlerts"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deliveries -->
+    <div id="page-deliveries" class="page hidden">
+      <div class="page-head">
+        <div><h2>Deliveries</h2><p>Committed date to client vs. production + shipment lead time</p></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="exportCsv">Export CSV</button>
+          <button class="btn primary editor-only" data-act="new">+ New delivery</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <input class="in" id="fSearch" placeholder="Search SO, client, project, supplier…">
+        <select class="in" id="fHealth">
+          <option value="">All health</option>
+          <option value="active">Active (not delivered)</option>
+          <option value="on_track">On track</option><option value="tight">Tight</option>
+          <option value="at_risk">At risk</option><option value="late">Late</option>
+          <option value="delivered_on_time">Delivered on time</option><option value="delivered_late">Delivered late</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <select class="in" id="fStatus">
+          <option value="">All status</option>
+          <option value="open">Open</option><option value="in_production">In production</option><option value="ready">Ready to ship</option>
+          <option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option>
+        </select>
+        <select class="in" id="fOwner"><option value="">All owners</option></select>
+        <span class="sub2" id="fCount"></span>
+        <div style="flex:1"></div>
+        <div class="legend"><span><i style="background:var(--prod)"></i>Production</span><span><i style="background:var(--ship)"></i>Shipment</span><span><i style="background:var(--late);width:3px;height:12px"></i>Commitment</span><span><i style="background:var(--accent);width:3px;height:12px"></i>Today</span></div>
+      </div>
+      <div class="card"><div class="tbl-wrap" style="max-height:calc(100vh - 250px)"><table id="delTable">
+        <thead><tr>
+          <th data-sort="so_number">SO #</th>
+          <th data-sort="client">Client / Project</th>
+          <th data-sort="order_date">Order</th>
+          <th data-sort="commitment_date">Commitment</th>
+          <th data-sort="production_leadtime_days" class="num">Prod LT</th>
+          <th data-sort="shipment_leadtime_days" class="num">Ship LT</th>
+          <th data-sort="committed_days" class="num">Window</th>
+          <th data-sort="planned_delivery">Planned</th>
+          <th data-sort="forecast_delivery">Forecast</th>
+          <th data-sort="forecast_buffer_days" class="num">Buffer</th>
+          <th class="nosort">Timeline</th>
+          <th data-sort="health">Health</th>
+          <th data-sort="status">Status</th>
+          <th data-sort="owner_name">Owner</th>
+        </tr></thead>
+        <tbody id="delBody"></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- Alerts -->
+    <div id="page-alerts" class="page hidden">
+      <div class="page-head">
+        <div><h2>Alerts</h2><p>Generated live from commitment dates, lead times and actual progress</p></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="sub2" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="aMine"> Only my deliveries</label>
+          <label class="sub2" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="aShowAcked"> Show acknowledged</label>
+        </div>
+      </div>
+      <div class="toolbar" id="alertFilters"></div>
+      <div class="card" id="alertList"></div>
+    </div>
+
+    <!-- Users -->
+    <div id="page-users" class="page hidden">
+      <div class="page-head">
+        <div><h2>Users</h2><p>Admins manage who can sign in and what they can do</p></div>
+        <button class="btn primary" id="addUser">+ Add user</button>
+      </div>
+      <div class="card"><div class="tbl-wrap"><table>
+        <thead><tr><th class="nosort">Name</th><th class="nosort">Email</th><th class="nosort">Role</th><th class="nosort">Active</th><th class="nosort">Last sign-in</th><th class="nosort"></th></tr></thead>
+        <tbody id="userBody"></tbody>
+      </table></div></div>
+      <div class="card" style="margin-top:16px"><div class="bd sub2">
+        <b>Admin</b> – everything, including users, settings and deleting deliveries. &nbsp;
+        <b>Editor</b> – add and update deliveries. &nbsp;
+        <b>Viewer</b> – read-only. Deactivated users can't sign in.
+      </div></div>
+    </div>
+
+    <!-- Settings -->
+    <div id="page-settings" class="page hidden">
+      <div class="page-head"><div><h2>Alert settings</h2><p>Thresholds used to raise alerts for every user</p></div></div>
+      <div class="card"><div class="bd">
+        <div class="settings-grid">
+          <div><label class="f">"Due soon" window (days)</label><input class="in" type="number" min="0" id="sDue"><div class="help">Alert when the commitment date is within this many days and the order hasn't shipped.</div></div>
+          <div><label class="f">Tight buffer threshold (days)</label><input class="in" type="number" min="0" id="sTight"><div class="help">Flag as "tight" when forecast delivery is less than this many days before commitment.</div></div>
+          <div><label class="f">Ship-by warning (days)</label><input class="in" type="number" min="0" id="sShip"><div class="help">Alert when the latest ship-by date (commitment − shipment lead time) is within this many days.</div></div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;align-items:center"><button class="btn primary" id="saveSettings">Save settings</button><span class="err" id="sErr" style="margin:0"></span></div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+        <h3 style="margin:0 0 8px;font-size:14px">Alert types</h3>
+        <table><tbody>
+          <tr><td><span class="chip chip-critical">critical</span>Late</td><td class="sub2">Commitment date has passed and the order isn't delivered.</td></tr>
+          <tr><td><span class="chip chip-high">high</span>At risk</td><td class="sub2">Forecast delivery (using actual production/shipping dates where entered) is after the commitment.</td></tr>
+          <tr><td><span class="chip chip-high">high</span>Production overdue</td><td class="sub2">Planned production finish date has passed with no production-done date.</td></tr>
+          <tr><td><span class="chip chip-medium">medium</span>Ship-by deadline</td><td class="sub2">Latest ship-by date is near or has passed and the order hasn't shipped.</td></tr>
+          <tr><td><span class="chip chip-medium">medium</span>Lead time exceeds commitment</td><td class="sub2">Production + shipment lead time is longer than the window promised to the client.</td></tr>
+          <tr><td><span class="chip chip-low">low</span>Tight buffer</td><td class="sub2">Forecast delivery is on time but with little buffer.</td></tr>
+          <tr><td><span class="chip chip-low">low</span>Due soon</td><td class="sub2">Commitment is coming up and the order hasn't shipped.</td></tr>
+        </tbody></table>
+      </div></div>
+    </div>
+  </main>
+</section>
+
+<div id="modalRoot"></div>
+
+<script>
+// ═══════════════════════ Setup ═══════════════════════
+const CFG = window.KLS_CONFIG || {};
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const state = { me: null, rows: [], alerts: [], acks: new Set(), settings: null, users: [], owners: [], sort: { key: 'commitment_date', dir: 1 }, page: 'dashboard', alertSev: '' };
+
+const HEALTH = {
+  on_track: ['On track', 'var(--ok)'], tight: ['Tight', 'var(--tight)'], at_risk: ['At risk', 'var(--risk)'], late: ['Late', 'var(--late)'],
+  delivered_on_time: ['Delivered on time', 'var(--brand2)'], delivered_late: ['Delivered late', '#7b3fa0'], cancelled: ['Cancelled', 'var(--gray)'],
+};
+const STATUS = { open: 'Open', in_production: 'In production', ready: 'Ready to ship', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled' };
+const ALERT_NAMES = { late: 'Late', at_risk: 'At risk', production_overdue: 'Production overdue', ship_deadline: 'Ship-by deadline', leadtime_exceeds_commitment: 'Lead time exceeds commitment', tight_buffer: 'Tight buffer', due_soon: 'Due soon' };
+const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+
+// Dates: work in Singapore local calendar days
+const sgToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' });
+const toD = (s) => s ? new Date(s + 'T00:00:00Z') : null;
+const addDays = (s, n) => { const d = toD(s); d.setUTCDate(d.getUTCDate() + Number(n || 0)); return d.toISOString().slice(0, 10); };
+const diffDays = (a, b) => Math.round((toD(a) - toD(b)) / 86400000); // a - b
+const fmt = (s) => s ? toD(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'UTC' }) : '—';
+const fmtTs = (s) => s ? new Date(s).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+
+const isAdmin = () => state.me?.role === 'admin';
+const canEdit = () => ['admin', 'editor'].includes(state.me?.role);
+
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
+}
+const healthPill = (h) => { const [l, c] = HEALTH[h] || [h, 'var(--gray)']; return `<span class="pill h-${esc(h)}"><span class="dot" style="background:${c}"></span>${esc(l)}</span>`; };
+const bufCell = (n) => n == null ? '—' : `<span class="${n < 0 ? 'buf-neg' : n < (state.settings?.tight_buffer_days ?? 3) ? 'buf-low' : 'buf-pos'}">${n > 0 ? '+' : ''}${n}d</span>`;
+
+// ═══════════════════════ Auth ═══════════════════════
+async function boot() {
+  if (!CFG.SUPABASE_URL || !CFG.SUPABASE_KEY) { document.body.innerHTML = '<p style="padding:40px">Missing config.js (SUPABASE_URL / SUPABASE_KEY).</p>'; return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await enter(); else showLogin();
+  sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') showLogin(); });
+}
+function showLogin(msg) {
+  $('#app').classList.add('hidden'); $('#login').classList.remove('hidden');
+  $('#lErr').textContent = msg || ''; clearInterval(state.poll);
+}
+$('#loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('#lBtn').disabled = true; $('#lErr').textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email: $('#lEmail').value.trim(), password: $('#lPass').value });
+  $('#lBtn').disabled = false;
+  if (error) { $('#lErr').textContent = /banned/i.test(error.message) ? 'This account has been deactivated. Contact your administrator.' : error.message; return; }
+  await enter();
+});
+
+async function enter() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return showLogin();
+  const { data: prof } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  if (!prof || !prof.is_active) { await sb.auth.signOut(); return showLogin('Your account is not active. Contact your administrator.'); }
+  state.me = prof;
+  $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  $('#userName').textContent = prof.full_name || prof.email;
+  $('#userEmail').textContent = prof.email;
+  $('#userRole').textContent = 'Role: ' + prof.role;
+  $$('.admin-only').forEach(el => el.classList.toggle('hidden', !isAdmin()));
+  $$('.editor-only').forEach(el => el.classList.toggle('hidden', !canEdit()));
+  updateNotifBtn();
+  await loadAll();
+  go(location.hash.slice(1) || 'dashboard');
+  clearInterval(state.poll);
+  state.poll = setInterval(async () => { await loadAll(true); }, 5 * 60 * 1000);
+}
+
+// ═══════════════════════ Data ═══════════════════════
+async function loadAll(isPoll = false) {
+  const prevKeys = new Set(state.alerts.map(a => a.delivery_id + ':' + a.alert_type));
+  const [rows, alerts, acks, settings, owners] = await Promise.all([
+    sb.from('delivery_status').select('*').order('commitment_date'),
+    sb.from('delivery_alerts').select('*'),
+    sb.from('alert_acks').select('delivery_id,alert_type'),
+    sb.from('alert_settings').select('*').eq('id', 1).single(),
+    sb.from('profiles').select('id,full_name,email,role,is_active'),
+  ]);
+  if (rows.error) { toast('Load failed: ' + rows.error.message); return; }
+  state.rows = rows.data || [];
+  state.alerts = (alerts.data || []).sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || (a.sort_date || '').localeCompare(b.sort_date || ''));
+  state.acks = new Set((acks.data || []).map(a => a.delivery_id + ':' + a.alert_type));
+  state.settings = settings.data;
+  // Non-admins only see their own profile via RLS; owner names still come through the view
+  state.owners = (owners.data || []).filter(p => p.is_active);
+  if (isPoll) notifyNew(prevKeys);
+  renderBadge();
+  render();
+}
+
+function render() {
+  if (state.page === 'dashboard') renderDashboard();
+  if (state.page === 'deliveries') renderDeliveries();
+  if (state.page === 'alerts') renderAlerts();
+  if (state.page === 'users') renderUsers();
+  if (state.page === 'settings') renderSettings();
+}
+
+// ═══════════════════════ Navigation ═══════════════════════
+function go(page) {
+  if (!['dashboard', 'deliveries', 'alerts', 'users', 'settings'].includes(page)) page = 'dashboard';
+  if (['users', 'settings'].includes(page) && !isAdmin()) page = 'dashboard';
+  state.page = page; history.replaceState(null, '', '#' + page);
+  $$('.page').forEach(p => p.classList.toggle('hidden', p.id !== 'page-' + page));
+  $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+  if (page === 'users') loadUsers(); else render();
+}
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-page]'); if (b) go(b.dataset.page); });
+document.addEventListener('click', e => {
+  const g = e.target.closest('[data-goto]'); if (g) go(g.dataset.goto);
+  const n = e.target.closest('[data-act="new"]'); if (n) openDelivery();
+  if (!e.target.closest('.usermenu')) $('#userMenu').classList.add('hidden');
+});
+$('#userBtn').addEventListener('click', () => $('#userMenu').classList.toggle('hidden'));
+$('#mOut').addEventListener('click', async () => { await sb.auth.signOut(); });
+$('#mPwd').addEventListener('click', openChangePassword);
+$('#mNotif').addEventListener('click', async () => {
+  if (!('Notification' in window)) return toast('This browser does not support notifications');
+  const p = await Notification.requestPermission(); updateNotifBtn();
+  toast(p === 'granted' ? 'Desktop alerts on while the app is open' : 'Notifications blocked in browser settings');
+});
+function updateNotifBtn() {
+  const on = 'Notification' in window && Notification.permission === 'granted';
+  $('#mNotif').textContent = on ? '✓ Desktop alerts enabled' : 'Enable desktop alerts';
+}
+
+// ═══════════════════════ Timeline bar ═══════════════════════
+function timeline(r) {
+  const today = sgToday();
+  const start = r.order_date;
+  const prodEnd = r.production_done_date || r.planned_production_done;
+  const shipStart = r.shipped_date || prodEnd;
+  const shipEnd = r.delivered_date || r.forecast_delivery || r.planned_delivery;
+  const end = [r.commitment_date, shipEnd, r.planned_delivery, today].filter(Boolean).sort().pop();
+  const span = Math.max(1, diffDays(end, start) + 2);
+  const pct = (d) => Math.max(0, Math.min(100, diffDays(d, start) / span * 100));
+  const w = (a, b) => Math.max(0.6, pct(b) - pct(a));
+  const late = shipEnd > r.commitment_date;
+  const todayIn = today >= start && today <= end;
+  const tip = `Order ${fmt(start)} → production done ${fmt(prodEnd)}${r.production_done_date ? ' (actual)' : ' (plan)'} → delivery ${fmt(shipEnd)}${r.delivered_date ? ' (actual)' : ' (forecast)'} · commitment ${fmt(r.commitment_date)}`;
+  return `<div class="tl" title="${esc(tip)}">
+    <div class="seg p ${r.production_done_date ? '' : 'ghost'}" style="left:${pct(start)}%;width:${w(start, prodEnd)}%"></div>
+    <div class="seg s ${r.delivered_date ? '' : 'ghost'}" style="left:${pct(shipStart)}%;width:${w(shipStart, shipEnd)}%"></div>
+    <div class="mk c ${late ? '' : 'ok'}" style="left:${pct(r.commitment_date)}%"></div>
+    ${todayIn ? `<div class="mk t" style="left:${pct(today)}%"></div>` : ''}
+  </div>`;
+}
+
+// ═══════════════════════ Dashboard ═══════════════════════
+function renderDashboard() {
+  const today = sgToday();
+  $('#dashDate').textContent = 'As of ' + toD(today).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) + ' (SGT)';
+  const active = state.rows.filter(r => !['delivered_on_time', 'delivered_late', 'cancelled'].includes(r.health));
+  const count = (h) => active.filter(r => r.health === h).length;
+  const since = addDays(today, -90);
+  const delivered = state.rows.filter(r => r.delivered_date && r.delivered_date >= since);
+  const onTime = delivered.filter(r => r.health === 'delivered_on_time').length;
+  const otd = delivered.length ? Math.round(onTime / delivered.length * 100) + '%' : '—';
+  const avgBuf = active.length ? (active.reduce((s, r) => s + (r.forecast_buffer_days || 0), 0) / active.length).toFixed(1) : '—';
+  const k = [
+    ['Active orders', active.length, 'not yet delivered', 'var(--brand)', 'active'],
+    ['On track', count('on_track'), 'healthy buffer', 'var(--ok)', 'on_track'],
+    ['Tight', count('tight'), `< ${state.settings?.tight_buffer_days ?? 3} days buffer`, 'var(--tight)', 'tight'],
+    ['At risk', count('at_risk'), 'forecast after commitment', 'var(--risk)', 'at_risk'],
+    ['Late', count('late'), 'past commitment', 'var(--late)', 'late'],
+    ['On-time delivery', otd, `${onTime}/${delivered.length} in last 90 days`, 'var(--brand2)', 'delivered_on_time'],
+    ['Avg buffer', avgBuf === '—' ? '—' : avgBuf + 'd', 'forecast vs commitment', 'var(--gray)', 'active'],
+  ];
+  $('#kpis').innerHTML = k.map(([l, v, s, c, f]) => `<div class="card kpi" data-health="${f}"><div class="lbl"><span class="dot" style="background:${c}"></span>${l}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`).join('');
+  $$('#kpis .kpi').forEach(el => el.onclick = () => { $('#fHealth').value = el.dataset.health; go('deliveries'); });
+
+  const horizon = addDays(today, 30);
+  const up = active.filter(r => r.commitment_date <= horizon).sort((a, b) => a.commitment_date.localeCompare(b.commitment_date)).slice(0, 15);
+  $('#upcoming').innerHTML = up.length ? up.map(r => `<tr class="click" data-id="${r.id}">
+      <td><b>${esc(r.so_number)}</b><div class="sub2">${esc(r.client)}</div></td>
+      <td>${fmt(r.commitment_date)}<div class="sub2">${r.days_to_commitment < 0 ? Math.abs(r.days_to_commitment) + 'd overdue' : 'in ' + r.days_to_commitment + 'd'}</div></td>
+      <td class="num">${bufCell(r.forecast_buffer_days)}</td><td>${timeline(r)}</td><td>${healthPill(r.health)}</td></tr>`).join('')
+    : `<tr><td colspan="5" class="empty">No commitments in the next 30 days${canEdit() && !state.rows.length ? ' — <a href="#" data-act="new">add your first delivery</a>' : ''}.</td></tr>`;
+  $$('#upcoming tr[data-id]').forEach(tr => tr.onclick = () => openDelivery(+tr.dataset.id));
+
+  const open = state.alerts.filter(a => !state.acks.has(a.delivery_id + ':' + a.alert_type)).slice(0, 8);
+  $('#dashAlerts').innerHTML = open.length ? open.map(alertRow).join('') : '<div class="empty">No open alerts 🎉</div>';
+  bindAlertRows($('#dashAlerts'));
+}
+
+// ═══════════════════════ Deliveries ═══════════════════════
+function filteredRows() {
+  const q = $('#fSearch').value.trim().toLowerCase();
+  const h = $('#fHealth').value, s = $('#fStatus').value, o = $('#fOwner').value;
+  let rows = state.rows.filter(r => {
+    if (q && ![r.so_number, r.client, r.project, r.supplier, r.description, r.remarks].some(v => (v || '').toLowerCase().includes(q))) return false;
+    if (h === 'active' && ['delivered_on_time', 'delivered_late', 'cancelled'].includes(r.health)) return false;
+    if (h && h !== 'active' && r.health !== h) return false;
+    if (s && r.status !== s) return false;
+    if (o && r.owner_id !== o) return false;
+    return true;
+  });
+  const { key, dir } = state.sort;
+  rows.sort((a, b) => { const x = a[key], y = b[key]; if (x == null) return 1; if (y == null) return -1; return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * dir; });
+  return rows;
+}
+function renderDeliveries() {
+  const ownerSel = $('#fOwner'), cur = ownerSel.value;
+  const names = new Map(state.rows.filter(r => r.owner_id).map(r => [r.owner_id, r.owner_name]));
+  ownerSel.innerHTML = '<option value="">All owners</option>' + [...names].map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join('');
+  ownerSel.value = cur;
+  const rows = filteredRows();
+  $('#fCount').textContent = `${rows.length} of ${state.rows.length}`;
+  $$('#delTable th[data-sort]').forEach(th => { th.textContent = th.textContent.replace(/ [▲▼]$/, ''); if (th.dataset.sort === state.sort.key) th.textContent += state.sort.dir > 0 ? ' ▲' : ' ▼'; });
+  $('#delBody').innerHTML = rows.length ? rows.map(r => `<tr class="click" data-id="${r.id}">
+    <td><b>${esc(r.so_number)}</b></td>
+    <td>${esc(r.client)}<div class="sub2">${esc(r.project || r.description || '')}</div></td>
+    <td>${fmt(r.order_date)}</td>
+    <td><b>${fmt(r.commitment_date)}</b></td>
+    <td class="num">${r.production_leadtime_days}d</td>
+    <td class="num">${r.shipment_leadtime_days}d</td>
+    <td class="num">${r.committed_days}d<div class="sub2">LT ${r.total_leadtime_days}d</div></td>
+    <td>${fmt(r.planned_delivery)}</td>
+    <td>${fmt(r.delivered_date || r.forecast_delivery)}${r.delivered_date ? '<div class="sub2">actual</div>' : ''}</td>
+    <td class="num">${bufCell(r.forecast_buffer_days)}</td>
+    <td>${timeline(r)}</td>
+    <td>${healthPill(r.health)}</td>
+    <td><span class="pill s-tag">${esc(STATUS[r.status] || r.status)}</span></td>
+    <td class="sub2">${esc(r.owner_name || '—')}</td></tr>`).join('')
+    : `<tr><td colspan="14" class="empty">${state.rows.length ? 'No deliveries match these filters.' : 'No deliveries yet.'}</td></tr>`;
+  $$('#delBody tr[data-id]').forEach(tr => tr.onclick = () => openDelivery(+tr.dataset.id));
+}
+['#fSearch', '#fHealth', '#fStatus', '#fOwner'].forEach(s => $(s).addEventListener('input', renderDeliveries));
+$$('#delTable th[data-sort]').forEach(th => th.addEventListener('click', () => {
+  const k = th.dataset.sort; state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : 1 }; renderDeliveries();
+}));
+$('#exportCsv').addEventListener('click', () => {
+  const cols = ['so_number', 'client', 'project', 'description', 'supplier', 'order_date', 'commitment_date', 'production_leadtime_days', 'shipment_leadtime_days', 'committed_days', 'total_leadtime_days', 'planned_production_done', 'planned_delivery', 'latest_ship_by', 'production_done_date', 'shipped_date', 'delivered_date', 'forecast_delivery', 'planned_buffer_days', 'forecast_buffer_days', 'health', 'status', 'owner_name', 'remarks'];
+  const q = (v) => { v = v ?? ''; v = String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const csv = [cols.join(','), ...filteredRows().map(r => cols.map(c => q(r[c])).join(','))].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+  a.download = `kls-deliveries-${sgToday()}.csv`; a.click();
+});
+
+// ═══════════════════════ Delivery modal ═══════════════════════
+function modal(html, cls = '') {
+  $('#modalRoot').innerHTML = `<div class="overlay"><div class="modal ${cls}">${html}</div></div>`;
+  const ov = $('#modalRoot .overlay');
+  ov.addEventListener('mousedown', e => { if (e.target === ov) closeModal(); });
+  $$('[data-close]', ov).forEach(b => b.onclick = closeModal);
+  return ov;
+}
+const closeModal = () => { $('#modalRoot').innerHTML = ''; };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function openDelivery(id) {
+  const r = id ? state.rows.find(x => x.id === id) : null;
+  const ro = !canEdit();
+  const v = (k, d = '') => esc(r ? (r[k] ?? '') : d);
+  const today = sgToday();
+  const ownerOpts = `<option value="">—</option>` + state.owners.map(p => `<option value="${p.id}" ${r?.owner_id === p.id || (!r && p.id === state.me.id) ? 'selected' : ''}>${esc(p.full_name || p.email)}</option>`).join('')
+    + (r?.owner_id && !state.owners.some(p => p.id === r.owner_id) ? `<option value="${r.owner_id}" selected>${esc(r.owner_name || 'Other user')}</option>` : '');
+  const dis = ro ? 'disabled' : '';
+  const ov = modal(`
+    <div class="mh"><h3>${r ? 'Delivery ' + esc(r.so_number) : 'New delivery'}</h3><button class="x" data-close>×</button></div>
+    <form class="mb" id="dForm"><div class="form-grid">
+      <div class="section-t">Order</div>
+      <div class="c2"><label class="f">SO / Job # *</label><input class="in" name="so_number" required value="${v('so_number')}" ${dis}></div>
+      <div class="c2"><label class="f">Client *</label><input class="in" name="client" required value="${v('client')}" ${dis} list="clientList"></div>
+      <div class="c2"><label class="f">Project / Site</label><input class="in" name="project" value="${v('project')}" ${dis}></div>
+      <div class="c3"><label class="f">Items / Description</label><input class="in" name="description" value="${v('description')}" ${dis}></div>
+      <div class="c2"><label class="f">Supplier / Factory</label><input class="in" name="supplier" value="${v('supplier')}" ${dis} list="supplierList"></div>
+      <div class="c2" style="grid-column:span 1"><label class="f">Owner</label><select class="in" name="owner_id" ${dis}>${ownerOpts}</select></div>
+
+      <div class="section-t">Commitment vs lead times</div>
+      <div class="c2"><label class="f">Order date (PO received) *</label><input class="in" type="date" name="order_date" required value="${v('order_date', today)}" ${dis}></div>
+      <div class="c2"><label class="f">Committed delivery to client *</label><input class="in" type="date" name="commitment_date" required value="${v('commitment_date')}" ${dis}></div>
+      <div class="c2"></div>
+      <div class="c2"><label class="f">Production lead time (days)</label><input class="in" type="number" min="0" name="production_leadtime_days" value="${v('production_leadtime_days', 0)}" ${dis}></div>
+      <div class="c2"><label class="f">Shipment lead time (days)</label><input class="in" type="number" min="0" name="shipment_leadtime_days" value="${v('shipment_leadtime_days', 0)}" ${dis}></div>
+      <div class="calc" id="calc"></div>
+
+      <div class="section-t">Progress (actual dates)</div>
+      <div class="c2"><label class="f">Production completed</label><input class="in" type="date" name="production_done_date" value="${v('production_done_date')}" ${dis}></div>
+      <div class="c2"><label class="f">Shipped (ETD)</label><input class="in" type="date" name="shipped_date" value="${v('shipped_date')}" ${dis}></div>
+      <div class="c2"><label class="f">Delivered to client</label><input class="in" type="date" name="delivered_date" value="${v('delivered_date')}" ${dis}></div>
+      <div class="c2"><label class="f">Status</label><select class="in" name="status" ${dis}>${Object.entries(STATUS).map(([k, l]) => `<option value="${k}" ${(r?.status || 'open') === k ? 'selected' : ''}>${l}</option>`).join('')}</select><div class="help" id="statusHint"></div></div>
+      <div class="c6"><label class="f">Remarks</label><textarea class="in" name="remarks" rows="2" ${dis}>${v('remarks')}</textarea></div>
+    </div>
+    <datalist id="clientList">${[...new Set(state.rows.map(x => x.client))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <datalist id="supplierList">${[...new Set(state.rows.map(x => x.supplier).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <div class="err" id="dErr"></div></form>
+    <div class="mf">
+      <div>${r && isAdmin() ? '<button class="btn danger" id="dDel">Delete</button>' : ''}</div>
+      <div style="display:flex;gap:8px"><button class="btn" data-close>${ro ? 'Close' : 'Cancel'}</button>${ro ? '' : `<button class="btn primary" id="dSave">${r ? 'Save changes' : 'Create delivery'}</button>`}</div>
+    </div>`);
+  const f = $('#dForm', ov);
+  const calc = () => {
+    const g = n => f.elements[n].value;
+    const od = g('order_date'), cd = g('commitment_date'), pl = +g('production_leadtime_days') || 0, sl = +g('shipment_leadtime_days') || 0;
+    if (!od) { $('#calc').innerHTML = ''; return; }
+    const ppd = addDays(od, pl), pdl = addDays(od, pl + sl);
+    const win = cd ? diffDays(cd, od) : null, buf = cd ? diffDays(cd, pdl) : null, lsb = cd ? addDays(cd, -sl) : null;
+    $('#calc').innerHTML = `
+      <div><span>Planned production done</span><b>${fmt(ppd)}</b></div>
+      <div><span>Planned delivery</span><b>${fmt(pdl)}</b></div>
+      <div><span>Latest ship-by</span><b>${lsb ? fmt(lsb) : '—'}</b></div>
+      <div><span>Committed window</span><b>${win == null ? '—' : win + ' days'}</b></div>
+      <div><span>Total lead time</span><b>${pl + sl} days</b></div>
+      <div><span>Planned buffer</span><b>${buf == null ? '—' : bufCell(buf)}</b></div>`;
+  };
+  // Suggest status from actual dates
+  const hint = () => {
+    const g = n => f.elements[n].value;
+    const sug = g('delivered_date') ? 'delivered' : g('shipped_date') ? 'shipped' : g('production_done_date') ? 'ready' : null;
+    const st = f.elements.status;
+    if (sug && st.value !== sug && st.value !== 'cancelled' && !ro) { $('#statusHint').innerHTML = `<a href="#" id="useSug">Set to “${STATUS[sug]}”</a>`; $('#useSug').onclick = (e) => { e.preventDefault(); st.value = sug; hint(); }; }
+    else $('#statusHint').textContent = '';
+  };
+  f.addEventListener('input', () => { calc(); hint(); }); calc(); hint();
+  if (ro) return;
+  $('#dSave', ov).onclick = async () => {
+    if (!f.reportValidity()) return;
+    const fd = Object.fromEntries(new FormData(f));
+    for (const k of ['production_done_date', 'shipped_date', 'delivered_date', 'owner_id', 'project', 'description', 'supplier', 'remarks']) if (fd[k] === '') fd[k] = null;
+    fd.production_leadtime_days = +fd.production_leadtime_days || 0; fd.shipment_leadtime_days = +fd.shipment_leadtime_days || 0;
+    if (fd.commitment_date < fd.order_date) { $('#dErr').textContent = 'Commitment date is before the order date.'; return; }
+    $('#dSave').disabled = true;
+    const q = r ? sb.from('deliveries').update(fd).eq('id', r.id) : sb.from('deliveries').insert(fd);
+    const { error } = await q;
+    $('#dSave').disabled = false;
+    if (error) { $('#dErr').textContent = error.message; return; }
+    closeModal(); toast(r ? 'Saved' : 'Delivery created'); await loadAll();
+  };
+  const del = $('#dDel', ov);
+  if (del) del.onclick = async () => {
+    if (!confirm(`Delete delivery ${r.so_number}? This can't be undone.`)) return;
+    const { error } = await sb.from('deliveries').delete().eq('id', r.id);
+    if (error) { $('#dErr').textContent = error.message; return; }
+    closeModal(); toast('Deleted'); await loadAll();
+  };
+}
+
+// ═══════════════════════ Alerts ═══════════════════════
+function alertRow(a) {
+  const key = a.delivery_id + ':' + a.alert_type, acked = state.acks.has(key);
+  return `<div class="alert-row ${acked ? 'acked' : ''}">
+    <div class="sev sev-${a.severity}"></div>
+    <div class="body">
+      <div class="ttl"><span class="chip chip-${a.severity}">${a.severity}</span>${esc(ALERT_NAMES[a.alert_type] || a.alert_type)} · <a href="#" data-open="${a.delivery_id}">${esc(a.so_number)}</a> <span class="sub2">${esc(a.client)}${a.project ? ' · ' + esc(a.project) : ''}</span></div>
+      <div class="msg">${esc(a.message)} · Commitment ${fmt(a.commitment_date)}${a.owner_name ? ' · Owner: ' + esc(a.owner_name) : ''}</div>
+    </div>
+    <button class="btn sm" data-ack="${esc(key)}">${acked ? 'Un-acknowledge' : 'Acknowledge'}</button>
+  </div>`;
+}
+function bindAlertRows(root) {
+  $$('[data-open]', root).forEach(a => a.onclick = (e) => { e.preventDefault(); openDelivery(+a.dataset.open); });
+  $$('[data-ack]', root).forEach(b => b.onclick = async () => {
+    const [did, type] = b.dataset.ack.split(':'); b.disabled = true;
+    const res = state.acks.has(b.dataset.ack)
+      ? await sb.from('alert_acks').delete().eq('delivery_id', did).eq('alert_type', type).eq('user_id', state.me.id)
+      : await sb.from('alert_acks').insert({ delivery_id: +did, alert_type: type });
+    if (res.error) { toast(res.error.message); b.disabled = false; return; }
+    await loadAll();
+  });
+}
+function renderAlerts() {
+  const showAcked = $('#aShowAcked').checked, mine = $('#aMine').checked;
+  let list = state.alerts.filter(a => (showAcked || !state.acks.has(a.delivery_id + ':' + a.alert_type)) && (!mine || a.owner_id === state.me.id));
+  const counts = { '': list.length }; list.forEach(a => counts[a.severity] = (counts[a.severity] || 0) + 1);
+  $('#alertFilters').innerHTML = ['', 'critical', 'high', 'medium', 'low'].map(s => `<button class="btn sm ${state.alertSev === s ? 'primary' : ''}" data-sev="${s}">${s || 'All'} (${counts[s] || 0})</button>`).join('');
+  $$('#alertFilters [data-sev]').forEach(b => b.onclick = () => { state.alertSev = b.dataset.sev; renderAlerts(); });
+  if (state.alertSev) list = list.filter(a => a.severity === state.alertSev);
+  $('#alertList').innerHTML = list.length ? list.map(alertRow).join('') : '<div class="empty">No alerts here.</div>';
+  bindAlertRows($('#alertList'));
+}
+['#aShowAcked', '#aMine'].forEach(s => $(s).addEventListener('change', renderAlerts));
+function renderBadge() {
+  const n = state.alerts.filter(a => ['critical', 'high'].includes(a.severity) && !state.acks.has(a.delivery_id + ':' + a.alert_type)).length;
+  $('#alertBadge').textContent = n; $('#alertBadge').classList.toggle('hidden', !n);
+  document.title = (n ? `(${n}) ` : '') + 'KLS Delivery Tracker';
+}
+function notifyNew(prevKeys) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const fresh = state.alerts.filter(a => ['critical', 'high'].includes(a.severity) && !prevKeys.has(a.delivery_id + ':' + a.alert_type) && !state.acks.has(a.delivery_id + ':' + a.alert_type));
+  if (!fresh.length) return;
+  const a = fresh[0];
+  new Notification(`KLS: ${ALERT_NAMES[a.alert_type]} – ${a.so_number}`, { body: (fresh.length > 1 ? `+${fresh.length - 1} more. ` : '') + a.message });
+}
+
+// ═══════════════════════ Users (admin) ═══════════════════════
+async function adminCall(body) {
+  const { data, error } = await sb.functions.invoke('admin-users', { body });
+  if (error) {
+    let msg = error.message;
+    try { const j = await error.context.json(); msg = j.error || msg; } catch {}
+    throw new Error(msg);
+  }
+  return data;
+}
+async function loadUsers() {
+  $('#userBody').innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+  try { state.users = (await adminCall({ action: 'list' })).users; renderUsers(); }
+  catch (e) { $('#userBody').innerHTML = `<tr><td colspan="6" class="empty">${esc(e.message)}</td></tr>`; }
+}
+function renderUsers() {
+  $('#userBody').innerHTML = state.users.map(u => `<tr>
+    <td><b>${esc(u.full_name || '—')}</b>${u.id === state.me.id ? ' <span class="sub2">(you)</span>' : ''}</td>
+    <td>${esc(u.email)}</td>
+    <td><select class="in" style="width:auto" data-role="${u.id}">${['admin', 'editor', 'viewer'].map(r => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></td>
+    <td><label class="switch"><input type="checkbox" data-active="${u.id}" ${u.is_active ? 'checked' : ''}><span></span></label></td>
+    <td class="sub2">${fmtTs(u.last_sign_in_at)}</td>
+    <td style="text-align:right"><button class="btn sm" data-edit="${u.id}">Rename</button> <button class="btn sm" data-reset="${u.id}">Reset password</button> ${u.id !== state.me.id ? `<button class="btn sm danger" data-del="${u.id}">Delete</button>` : ''}</td>
+  </tr>`).join('') || '<tr><td colspan="6" class="empty">No users</td></tr>';
+  const run = async (body, okMsg) => { try { await adminCall(body); toast(okMsg); } catch (e) { toast(e.message); } await loadUsers(); };
+  $$('[data-role]').forEach(s => s.onchange = () => run({ action: 'update', id: s.dataset.role, role: s.value }, 'Role updated'));
+  $$('[data-active]').forEach(c => c.onchange = () => run({ action: 'update', id: c.dataset.active, is_active: c.checked }, c.checked ? 'User activated' : 'User deactivated'));
+  $$('[data-del]').forEach(b => b.onclick = () => { const u = state.users.find(x => x.id === b.dataset.del); if (confirm(`Delete ${u.email}? They will no longer be able to sign in.`)) run({ action: 'delete', id: u.id }, 'User deleted'); });
+  $$('[data-edit]').forEach(b => b.onclick = () => { const u = state.users.find(x => x.id === b.dataset.edit); const n = prompt('Full name', u.full_name || ''); if (n != null) run({ action: 'update', id: u.id, full_name: n }, 'Name updated'); });
+  $$('[data-reset]').forEach(b => b.onclick = () => openResetPassword(state.users.find(x => x.id === b.dataset.reset)));
+}
+const genPwd = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; const a = crypto.getRandomValues(new Uint32Array(12)); return [...a].map(n => c[n % c.length]).join(''); };
+$('#addUser').addEventListener('click', () => {
+  const ov = modal(`<div class="mh"><h3>Add user</h3><button class="x" data-close>×</button></div>
+    <form class="mb" id="uForm">
+      <label class="f">Full name</label><input class="in" name="full_name" style="margin-bottom:10px">
+      <label class="f">Email *</label><input class="in" type="email" name="email" required style="margin-bottom:10px">
+      <label class="f">Role</label><select class="in" name="role" style="margin-bottom:10px"><option value="viewer">Viewer – read only</option><option value="editor" selected>Editor – add & update deliveries</option><option value="admin">Admin – full control</option></select>
+      <label class="f">Temporary password *</label><div style="display:flex;gap:6px"><input class="in" name="password" required minlength="8" value="${genPwd()}"><button type="button" class="btn" id="regen">↻</button></div>
+      <div class="help">Share this with the user; they can change it under their name ▾ → Change password.</div>
+      <div class="err" id="uErr"></div>
+    </form>
+    <div class="mf"><span></span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn primary" id="uSave">Create user</button></div></div>`, 'narrow');
+  const f = $('#uForm', ov);
+  $('#regen').onclick = () => f.elements.password.value = genPwd();
+  $('#uSave').onclick = async () => {
+    if (!f.reportValidity()) return;
+    $('#uSave').disabled = true;
+    try { const fd = Object.fromEntries(new FormData(f)); await adminCall({ action: 'create', ...fd }); closeModal(); toast(`User created – password: ${fd.password}`); await loadUsers(); await loadAll(); }
+    catch (e) { $('#uErr').textContent = e.message; $('#uSave').disabled = false; }
+  };
+});
+function openResetPassword(u) {
+  const ov = modal(`<div class="mh"><h3>Reset password</h3><button class="x" data-close>×</button></div>
+    <div class="mb"><p class="sub2" style="margin-top:0">${esc(u.email)}</p>
+      <label class="f">New password</label><div style="display:flex;gap:6px"><input class="in" id="rpPwd" minlength="8" value="${genPwd()}"><button class="btn" id="rpGen">↻</button></div><div class="err" id="rpErr"></div></div>
+    <div class="mf"><span></span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn primary" id="rpSave">Set password</button></div></div>`, 'narrow');
+  $('#rpGen').onclick = () => $('#rpPwd').value = genPwd();
+  $('#rpSave').onclick = async () => {
+    try { await adminCall({ action: 'reset_password', id: u.id, password: $('#rpPwd').value }); closeModal(); toast('Password reset – new password: ' + $('#rpPwd').value); }
+    catch (e) { $('#rpErr').textContent = e.message; }
+  };
+}
+function openChangePassword() {
+  $('#userMenu').classList.add('hidden');
+  modal(`<div class="mh"><h3>Change your password</h3><button class="x" data-close>×</button></div>
+    <div class="mb"><label class="f">New password (min 8 characters)</label><input class="in" type="password" id="cp1" style="margin-bottom:10px" autocomplete="new-password">
+      <label class="f">Confirm</label><input class="in" type="password" id="cp2" autocomplete="new-password"><div class="err" id="cpErr"></div></div>
+    <div class="mf"><span></span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn primary" id="cpSave">Update</button></div></div>`, 'narrow');
+  $('#cpSave').onclick = async () => {
+    const a = $('#cp1').value, b = $('#cp2').value;
+    if (a.length < 8) return $('#cpErr').textContent = 'At least 8 characters';
+    if (a !== b) return $('#cpErr').textContent = "Passwords don't match";
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) return $('#cpErr').textContent = error.message;
+    closeModal(); toast('Password updated');
+  };
+}
+
+// ═══════════════════════ Settings (admin) ═══════════════════════
+function renderSettings() {
+  const s = state.settings || {};
+  $('#sDue').value = s.due_soon_days ?? 7; $('#sTight').value = s.tight_buffer_days ?? 3; $('#sShip').value = s.ship_deadline_days ?? 3;
+}
+$('#saveSettings').addEventListener('click', async () => {
+  const patch = { due_soon_days: +$('#sDue').value || 0, tight_buffer_days: +$('#sTight').value || 0, ship_deadline_days: +$('#sShip').value || 0, updated_at: new Date().toISOString() };
+  const { error } = await sb.from('alert_settings').update(patch).eq('id', 1);
+  $('#sErr').textContent = error ? error.message : '';
+  if (!error) { toast('Settings saved'); await loadAll(); }
+});
+
+boot();
+</script>
+</body>
+</html>
